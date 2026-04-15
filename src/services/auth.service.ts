@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { envConfig } from "../config";
 import { NotFoundError, UnauthorizedError } from "../errors/api.error";
 import bot from "../bot/telegram.bot";
+import { normalizePhone } from "../lib/utils";
 
 
 export const loginUser = async (email: string, password: string) => {
@@ -24,7 +25,8 @@ export const loginUser = async (email: string, password: string) => {
 
 
 export const loginDataCollector = async (phone: string, password: string) => {
-  const collector = await prisma.dataCollector.findUnique({ where: { phone } });
+  const normalizedPhone = normalizePhone(phone);
+  const collector = await prisma.dataCollector.findUnique({ where: { phone: normalizedPhone } });
   if (!collector) throw new NotFoundError("Data collector not found");
 
   const isValid = await bcrypt.compare(password, collector.password);
