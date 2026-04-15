@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+
+uploads
+.vercel
+
+/src/generated/prisma
+
+generated
+
+prisma/migrations
