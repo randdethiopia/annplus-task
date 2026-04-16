@@ -28,6 +28,8 @@ export const getTasks = async (req: Request, res: Response) => {
     limit: parsedLimit,
     status: status as SubmissionStatus,
     sortOrder: sortOrder === "asc" ? "asc" : "desc",
+    userRole: req.user.role,
+    userId: req.user.id,
   });
   
   return res.status(200).json({
@@ -96,7 +98,7 @@ export const getCollectorTasks = async (req:Request, res: Response) => {
 
 export const getTaskById = async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const taskDetails = await taskService.getTaskById(id);
+  const taskDetails = await taskService.getTaskById(id, req.user.role, req.user.id);
 
   return res.status(200).json(taskDetails);
 };

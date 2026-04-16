@@ -32,14 +32,14 @@ export const createSubmission = async (req: Request, res: Response) => {
 };
 
 export const getSubmissions = async (req: Request, res: Response) => {
-  const submissions = await submissionService.getAllSubmissions();
+  const submissions = await submissionService.getAllSubmissions(req.user.role, req.user.id);
   return res.status(200).json(submissions);
 };
 
 export const getSubmission = async (req: Request, res: Response) => {
   const id = req.params.id as string;
 
-  const submission = await submissionService.getSubmissionById(id);
+  const submission = await submissionService.getSubmissionById(id, req.user.role, req.user.id);
   if (!submission) throw new NotFoundError("Submission not found");
 
   return res.status(200).json(submission);
@@ -49,7 +49,12 @@ export const updateSubmission = async (req: Request, res: Response) => {
   const id = req.params.id as string;
   const data = req.body;
 
-  const submission = await submissionService.updateSubmission(id, { ...data, reviewedById: req.user.id });
+  const submission = await submissionService.updateSubmission(
+    id,
+    { ...data, reviewedById: req.user.id },
+    req.user.role,
+    req.user.id
+  );
   if (!submission) throw new NotFoundError("Submission not found or not updated");
 
   return res.status(200).json({

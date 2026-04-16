@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { getDataCollectors, registerDataCollector } from "../controllers/data-collector.controller";
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
 
 /**
  * @swagger
@@ -64,6 +67,6 @@ router.post("/register", registerDataCollector)
  *                   telegramUsername:
  *                     type: string
  */
-router.get("/", getDataCollectors)
+router.get("/", verifyToken, authorizeRoles(...adminRoles), getDataCollectors)
 
 export default router;

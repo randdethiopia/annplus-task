@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { getUser, getUsers, registerUser } from "../controllers/user.controller";
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
 
 /**
  * @swagger
@@ -41,7 +44,7 @@ const router = Router();
  *       409:
  *         description: User already exists
  */
-router.post("/register", registerUser);
+router.post("/register", verifyToken, authorizeRoles(...adminRoles), registerUser);
 
 
 /**
@@ -58,7 +61,7 @@ router.post("/register", registerUser);
  *       500:
  *         description: Server error
  */
-router.get("/", getUsers);
+router.get("/", verifyToken, authorizeRoles(...adminRoles), getUsers);
 
 
 /**
@@ -82,7 +85,7 @@ router.get("/", getUsers);
  *       404:
  *         description: User not found
  */
-router.get("/:id", getUser);
+router.get("/:id", verifyToken, authorizeRoles(...adminRoles), getUser);
 
 
 export default router;

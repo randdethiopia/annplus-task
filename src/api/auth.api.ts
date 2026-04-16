@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { loginDataCollector, loginUser, resetDataCollectorPassword } from "../controllers/auth.controller";
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
 
 const authRouter = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
 
 
 /**
@@ -53,7 +56,12 @@ authRouter.post("/login", loginUser);
  */
 authRouter.post("/data-collector/login", loginDataCollector);
 
-authRouter.post("/data-collector/:id/reset-password", resetDataCollectorPassword);
+authRouter.post(
+	"/data-collector/:id/reset-password",
+	verifyToken,
+	authorizeRoles(...adminRoles),
+	resetDataCollectorPassword
+);
 
 
 export default authRouter;

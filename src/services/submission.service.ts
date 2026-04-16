@@ -1,4 +1,5 @@
 import { SubmissionStatus, TaskMediaType } from "../generated/prisma/enums";
+import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 
 
@@ -85,16 +86,49 @@ export const submitTaskIfRequirementSatisfied = async (
 };
 
 
-export const updateSubmission = async (id: string, data: Partial<UpdateSubmissionInput>) => {
+const buildSubmissionScope = (userRole?: string, userId?: string): Prisma.SubmissionWhereInput => {
+    if (userRole === "SUPERVISOR" && userId) {
+        return {
+            task: {
+                createdById: userId,
+            },
+        };
+    }
+
+    return {};
+};
+
+export const updateSubmission = async (
+    id: string,
+    data: Partial<UpdateSubmissionInput>,
+    userRole?: string,
+    userId?: string
+) => {
+    const scope = buildSubmissionScope(userRole, userId);
+
+    if (userRole === "SUPERVISOR" && userId) {
+        const allowed = await prisma.submission.findFirst({
+            where: {
+                id,
+                ...scope,
+            },
+            select: { id: true },
+        });
+
+        if (!allowed) return null;
+    }
+
     return await prisma.submission.update({
         where: { id },
         data
     });
 };
 
+export const getAllSubmissions = async (userRole?: string, userId?: string) => {
+    const where = buildSubmissionScope(userRole, userId);
 
-export const getAllSubmissions = async () => {
     return prisma.submission.findMany({
+        where,
         include: {
             task: true,
             collector: true
@@ -122,9 +156,18 @@ export const getSubmissionByCollectorId = async (collectorId: string) => {
     });
 };
 
-export const getSubmissionById = async (submissionId: string) => {
-    return prisma.submission.findUnique({
-        where: { id: submissionId },
+export const getSubmissionById = async (
+    submissionId: string,
+    userRole?: string,
+    userId?: string
+) => {
+    const where = buildSubmissionScope(userRole, userId);
+
+    return prisma.submission.findFirst({
+        where: {
+            id: submissionId,
+            ...where,
+        },
         include: {
             task: true,
             collector: true
