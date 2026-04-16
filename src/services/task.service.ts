@@ -326,6 +326,59 @@ export const assignTaskToCollector = async ( collectorId: string, taskId: string
   return collectorTask;
  }
 
+export const handleSmartReassign = async (
+  taskId: string,
+  collectorId: string,
+  createdById: string
+) => {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { status: true },
+  });
+
+  if (!task) {
+    throw new NotFoundError("Task not found");
+  }
+
+  if (task.status === SubmissionStatus.REJECTED) {
+    const newTask = await recreateRejectedTask(taskId, createdById);
+    return assignTaskToCollector(collectorId, newTask.id);
+  }
+
+  if (task.status !== SubmissionStatus.PENDING) {
+    throw new ConflictError("Only pending or rejected tasks can be reassigned");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.collectorTask.deleteMany({ where: { taskId } });
+    await tx.task.update({ where: { id: taskId }, data: { isAssigned: true } });
+
+    return tx.collectorTask.create({
+      data: {
+        collectorId,
+        taskId,
+      },
+      select: {
+        id: true,
+        collector: {
+          select: {
+            id: true,
+            name: true,
+            telegramChatId: true,
+          },
+        },
+        task: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+          },
+        },
+      },
+    });
+  });
+};
+
 export const recreateRejectedTask = async (taskId: string, createdById: string) => {
   const task = await prisma.task.findUnique({
     where: { id: taskId },

@@ -167,9 +167,7 @@ export const reassignTask = async (req: Request, res: Response) => {
   const { collectorId } = req.body;
   const { id: createdById } = req.user;
 
-  const newTask = await taskService.recreateRejectedTask(id, createdById);
-
-  const { task, collector } = await taskService.assignTaskToCollector(collectorId, newTask.id);
+  const { task, collector } = await taskService.handleSmartReassign(id, collectorId, createdById);
 
   if (task) {
     const { id, title, description } = task;
