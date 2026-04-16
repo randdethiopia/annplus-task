@@ -11,7 +11,8 @@ import {
   reassignTask,
 } from "../controllers/task.controller";
 import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
-
+import {validate} from "../middlewares/validate";
+import { createTaskSchema, reassignTaskSchema } from "../schemas/task.schema";
 const router = Router();
 
 const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
@@ -42,7 +43,7 @@ const collectorAndAdminRoles = ["DATA_COLLECTOR", ...adminRoles] as const;
  *       201:
  *         description: Task created successfully
  */
-router.post("/", verifyToken, authorizeRoles(...adminRoles), createTask);
+router.post("/", verifyToken, validate(createTaskSchema), authorizeRoles(...adminRoles), createTask);
 
 /**
  * @swagger
@@ -210,7 +211,7 @@ router.post("/assign/:id", verifyToken, authorizeRoles(...adminRoles), assignUse
 
 
 
-router.post("/reassign/:id", verifyToken, authorizeRoles(...adminRoles), reassignTask);
+router.post("/reassign/:id", verifyToken, validate(reassignTaskSchema), authorizeRoles(...adminRoles), reassignTask);
 
 /**
  * @swagger
