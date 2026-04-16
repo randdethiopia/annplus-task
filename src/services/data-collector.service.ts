@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import { ConflictError, InternalServerError, NotFoundError } from "../errors/api.error";
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
+import { normalizePhone } from "../lib/utils";
 
 
 
@@ -18,6 +19,7 @@ interface DataCollector {
 export const createDataCollector = async (collectorData: DataCollector) => {
     try {
         const { name, phone, password, telegramUsername } = collectorData;
+        const normalizedPhone = normalizePhone(phone);
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -27,7 +29,7 @@ export const createDataCollector = async (collectorData: DataCollector) => {
         const collector = await prisma.dataCollector.create({
             data: {
                 name,
-                phone,
+                phone: normalizedPhone,
                 password: hashedPassword,
                 telegramUsername,
             },
@@ -51,6 +53,9 @@ export const createDataCollector = async (collectorData: DataCollector) => {
 
 export const updateDataCollector = async ( id:string, collectorData: Partial<DataCollector> ) => {
     const dataToUpdate = { ...collectorData };
+    if (collectorData.phone) {
+        dataToUpdate.phone = normalizePhone(collectorData.phone);
+    }
     if (collectorData.password) {
         const salt = await bcrypt.genSalt(10);
         dataToUpdate.password = await bcrypt.hash(collectorData.password, salt);

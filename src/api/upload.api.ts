@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { getPresignedUploadUrl } from "../controllers/upload.controller";
-import { verifyToken } from "../middlewares/auth.middleware";
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
+const collectorAndAdminRoles = ["DATA_COLLECTOR", ...adminRoles] as const;
 
 /**
  * @swagger
@@ -43,6 +46,11 @@ const router = Router();
  *       400:
  *         description: Invalid request payload
  */
-router.post("/presigned-url", verifyToken, getPresignedUploadUrl);
+router.post(
+	"/presigned-url",
+	verifyToken,
+	authorizeRoles(...collectorAndAdminRoles),
+	getPresignedUploadUrl
+);
 
 export default router;

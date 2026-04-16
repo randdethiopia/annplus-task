@@ -23,7 +23,11 @@ export const loginDataCollector = async (req: Request, res: Response) => {
 export const resetDataCollectorPassword = async (req: Request, res: Response) => {
     const collectorId = req.params.id as string;
 
-    await authService.resetDataCollectorPassword(collectorId);
+    const result = await authService.resetDataCollectorPassword(collectorId);
     
-    return res.status(200).json({ message: "Password reset successfully" });
+    return res.status(200).json({
+        message: "Password reset successfully",
+        temporaryPassword: result.tempPassword,
+        telegramStatus: result.telegramStatus
+    });
 }

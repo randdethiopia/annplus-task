@@ -10,9 +10,13 @@ import {
   archiveTask,
   reassignTask,
 } from "../controllers/task.controller";
-import { verifyToken } from "../middlewares/auth.middleware";
-
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
+import {validate} from "../middlewares/validate";
+import { createTaskSchema, reassignTaskSchema } from "../schemas/task.schema";
 const router = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
+const collectorAndAdminRoles = ["DATA_COLLECTOR", ...adminRoles] as const;
 
 /**
  * @swagger
@@ -39,7 +43,7 @@ const router = Router();
  *       201:
  *         description: Task created successfully
  */
-router.post("/", verifyToken, createTask);
+router.post("/", verifyToken, validate(createTaskSchema), authorizeRoles(...adminRoles), createTask);
 
 /**
  * @swagger
@@ -57,7 +61,7 @@ router.post("/", verifyToken, createTask);
  *               items:
  *                 type: object
  */
-router.get("/", getTasks);
+router.get("/", verifyToken, authorizeRoles(...adminRoles), getTasks);
 
 /**
  * @swagger
@@ -90,7 +94,7 @@ router.get("/", getTasks);
  *       200:
  *         description: User tasks retrieved successfully
  */
-router.get("/collector-tasks", verifyToken, getCollectorTasks);
+router.get("/collector-tasks", verifyToken, authorizeRoles(...collectorAndAdminRoles), getCollectorTasks);
 
 /**
  * @swagger
@@ -126,7 +130,7 @@ router.get("/collector-tasks", verifyToken, getCollectorTasks);
  *       200:
  *         description: Collector tasks retrieved successfully
  */
-router.get("/collector/:collectorId", getTasksByCollector);
+router.get("/collector/:collectorId", verifyToken, authorizeRoles(...adminRoles), getTasksByCollector);
 
 /**
  * @swagger
@@ -162,7 +166,7 @@ router.get("/collector/:collectorId", getTasksByCollector);
  *                     total:
  *                       type: integer
  */
-router.get("/:id", getTaskById);
+router.get("/:id", verifyToken, authorizeRoles(...collectorAndAdminRoles), getTaskById);
 
 
 /** * @swagger
@@ -174,7 +178,7 @@ router.get("/:id", getTaskById);
  *       200:
  *         description: Task archived successfully
  */
-router.post("/archive/:id", verifyToken, archiveTask);
+router.post("/archive/:id", verifyToken, authorizeRoles(...adminRoles), archiveTask);
 
 
 /**
@@ -203,11 +207,11 @@ router.post("/archive/:id", verifyToken, archiveTask);
  *       200:
  *         description: Users assigned to task successfully
  */
-router.post("/assign/:id", verifyToken, assignUserToTask);
+router.post("/assign/:id", verifyToken, authorizeRoles(...adminRoles), assignUserToTask);
 
 
 
-router.post("/reassign/:id", verifyToken, reassignTask);
+router.post("/reassign/:id", verifyToken, validate(reassignTaskSchema), authorizeRoles(...adminRoles), reassignTask);
 
 /**
  * @swagger
@@ -238,6 +242,6 @@ router.post("/reassign/:id", verifyToken, reassignTask);
  *       200:
  *         description: Task reviewed successfully
  */
-router.post("/review/:id", verifyToken, reviewTask);
+router.post("/review/:id", verifyToken, authorizeRoles(...adminRoles), reviewTask);
 
 export default router;

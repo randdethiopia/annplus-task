@@ -1,4 +1,5 @@
 import { ConflictError, NotFoundError } from "../errors/api.error";
+import { Prisma } from "../generated/prisma/client";
 import { SubmissionStatus, TaskMediaType } from "../generated/prisma/enums";
 import { prisma } from "../lib/prisma";
 
@@ -39,17 +40,33 @@ export const updateTask = async (id: string, data: Partial<UpdateTaskInput>) => 
     });
 };
 
+const buildTaskScope = (userRole?: string, userId?: string): Prisma.TaskWhereInput => {
+  if (userRole === "SUPERVISOR" && userId) {
+    return {
+      createdById: userId,
+    };
+  }
+
+  return {};
+};
+
 export const getTasks = async (query: {
   page?: number;
   limit?: number;
   status?: SubmissionStatus;
   sortOrder?: "asc" | "desc";
+  userRole?: string;
+  userId?: string;
 }) => {
   
   const page = Math.max(query.page ?? 1, 1);
   const limit = Math.min(Math.max(query.limit ?? 10, 1), 100);
 
-  const where = query.status ? { status: query.status } : {};
+  const scope = buildTaskScope(query.userRole, query.userId);
+  const where: Prisma.TaskWhereInput = {
+    ...scope,
+    ...(query.status ? { status: query.status } : {}),
+  };
   const sort = query.sortOrder === "asc" ? "asc" : "desc";
 
   const totalCount = await prisma.task.count({ where });
@@ -157,26 +174,34 @@ export const getTasksByCollector = async (query: {
   };
 };
 
-export const getTaskById = async (id: string) => {
-    const task = await prisma.task.findUnique({
-        where: { id },
+export const getTaskById = async (id: string, userRole?: string, userId?: string) => {
+    const scope = buildTaskScope(userRole, userId);
+    const task = await prisma.task.findFirst({
+        where: {
+          id,
+          ...scope,
+        },
         include: {
           submissions: true
         }
     });
 
-    const remainingImages = task?.submissions.filter(
-      (submission) => submission.mediaType === TaskMediaType.IMAGE
-    ) || [];
+    if (!task) {
+      throw new NotFoundError("Task not found");
+    }
 
-    const remainingVideos = task?.submissions.filter(
+    const remainingImages = task.submissions.filter(
+      (submission) => submission.mediaType === TaskMediaType.IMAGE
+    );
+
+    const remainingVideos = task.submissions.filter(
       (submission) => submission.mediaType === TaskMediaType.VIDEO
-    ) || [];
+    );
 
     const uploaded = {
       images: remainingImages.length,
       videos: remainingVideos.length,
-      total: task?.submissions.length || 0,
+      total: task.submissions.length,
     };
 
     return {
@@ -185,11 +210,11 @@ export const getTaskById = async (id: string) => {
         uploaded,
       },
       images: {
-        total: task?.imageCount || 0,
+        total: task.imageCount || 0,
         remaining: remainingImages
       },
       videos: {
-        total: task?.videoCount || 0,
+        total: task.videoCount || 0,
         remaining: remainingVideos
       }
     };
@@ -300,6 +325,59 @@ export const assignTaskToCollector = async ( collectorId: string, taskId: string
 
   return collectorTask;
  }
+
+export const handleSmartReassign = async (
+  taskId: string,
+  collectorId: string,
+  createdById: string
+) => {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { status: true },
+  });
+
+  if (!task) {
+    throw new NotFoundError("Task not found");
+  }
+
+  if (task.status === SubmissionStatus.REJECTED) {
+    const newTask = await recreateRejectedTask(taskId, createdById);
+    return assignTaskToCollector(collectorId, newTask.id);
+  }
+
+  if (task.status !== SubmissionStatus.PENDING) {
+    throw new ConflictError("Only pending or rejected tasks can be reassigned");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.collectorTask.deleteMany({ where: { taskId } });
+    await tx.task.update({ where: { id: taskId }, data: { isAssigned: true } });
+
+    return tx.collectorTask.create({
+      data: {
+        collectorId,
+        taskId,
+      },
+      select: {
+        id: true,
+        collector: {
+          select: {
+            id: true,
+            name: true,
+            telegramChatId: true,
+          },
+        },
+        task: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+          },
+        },
+      },
+    });
+  });
+};
 
 export const recreateRejectedTask = async (taskId: string, createdById: string) => {
   const task = await prisma.task.findUnique({

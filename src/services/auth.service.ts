@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { envConfig } from "../config";
 import { NotFoundError, UnauthorizedError } from "../errors/api.error";
 import bot from "../bot/telegram.bot";
+import { normalizePhone } from "../lib/utils";
 
 
 export const loginUser = async (email: string, password: string) => {
@@ -24,7 +25,8 @@ export const loginUser = async (email: string, password: string) => {
 
 
 export const loginDataCollector = async (phone: string, password: string) => {
-  const collector = await prisma.dataCollector.findUnique({ where: { phone } });
+  const normalizedPhone = normalizePhone(phone);
+  const collector = await prisma.dataCollector.findUnique({ where: { phone: normalizedPhone } });
   if (!collector) throw new NotFoundError("Data collector not found");
 
   const isValid = await bcrypt.compare(password, collector.password);
@@ -46,7 +48,7 @@ export const resetDataCollectorPassword = async (id: string) => {
   const collector = await prisma.dataCollector.findUnique({ where: { id } });
   if (!collector) throw new NotFoundError("Data collector not found");
 
-  const tempPassword = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const tempPassword = Math.floor(100000 + Math.random() * 900000).toString();
   const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
   await prisma.dataCollector.update({
@@ -54,17 +56,18 @@ export const resetDataCollectorPassword = async (id: string) => {
     data: { password: hashedPassword },
   });
 
-
+  let telegramStatus = "Not Sent";
   if (collector.telegramChatId) {
     try {
       await bot.sendMessage(
         collector.telegramChatId,
         `Your password has been reset. Your new temporary password is: ${tempPassword}`
       );
+      telegramStatus = "Sent Successfully";
     } catch (err) {
-      throw new Error('Failed to send Telegram notification');
+      telegramStatus = "Failed to send Telegram message";
     }
-  } else {
-    throw new NotFoundError("Telegram Chat ID not found for this data collector");
   }
+
+  return { tempPassword, telegramStatus };
 }

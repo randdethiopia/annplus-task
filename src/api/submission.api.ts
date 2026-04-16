@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { createSubmission, getSubmission, getSubmissions, updateSubmission } from "../controllers/submission.controller";
-import { verifyToken } from "../middlewares/auth.middleware";
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
 
 const router = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
+const collectorAndAdminRoles = ["DATA_COLLECTOR", ...adminRoles] as const;
 
 /**
  * @swagger
@@ -43,8 +46,8 @@ const router = Router();
  *       200:
  *         description: List of submissions
  */
-router.post("/", verifyToken, createSubmission);
-router.get("/", verifyToken, getSubmissions);
+router.post("/", verifyToken, authorizeRoles(...collectorAndAdminRoles), createSubmission);
+router.get("/", verifyToken, authorizeRoles(...adminRoles), getSubmissions);
 
 
 /**
@@ -68,7 +71,7 @@ router.get("/", verifyToken, getSubmissions);
  *             schema:
  *               type: object
  */
-router.get("/:id", getSubmission);
+router.get("/:id", verifyToken, authorizeRoles(...collectorAndAdminRoles), getSubmission);
 
 
 /**
@@ -99,6 +102,6 @@ router.get("/:id", getSubmission);
  *       200:
  *         description: Submission updated successfully
  */
-router.patch("/:id", verifyToken, updateSubmission);
+router.patch("/:id", verifyToken, authorizeRoles(...adminRoles), updateSubmission);
 
 export default router;

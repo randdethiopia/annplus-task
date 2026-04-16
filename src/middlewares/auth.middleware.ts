@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import { envConfig } from "../config";
 
 export interface AuthUser {
     id: string;
@@ -22,11 +23,27 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
         return res.status(401).json({ message: "Unauthorized" });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET as string, (err, decoded) => {
+    jwt.verify(token, envConfig.jwtSecret, (err, decoded) => {
         if (err) {
             return res.status(401).json({ message: "Unauthorized" });
         }
         req.user = decoded as AuthUser;
         next();
     });
+};
+
+export const authorizeRoles = (...allowedRoles: string[]) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        if (!req.user) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({
+                message: `Role ${req.user.role} is not authorized to access this resource`,
+            });
+        }
+
+        next();
+    };
 };

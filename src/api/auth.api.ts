@@ -1,7 +1,14 @@
 import { Router } from "express";
 import { loginDataCollector, loginUser, resetDataCollectorPassword } from "../controllers/auth.controller";
+import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware";
+import {validate} from "../middlewares/validate";
+import { loginCollectorSchema } from "../schemas/auth.schema";
+import { loginUserSchema } from "../schemas/auth.schema";
+
 
 const authRouter = Router();
+
+const adminRoles = ["SUPERADMIN", "TEAMLEAD", "SUPERVISOR"] as const;
 
 
 /**
@@ -24,7 +31,7 @@ const authRouter = Router();
  *               $ref: '#/components/schemas/LoginResponse'
  */
 
-authRouter.post("/login", loginUser);
+authRouter.post("/login", validate(loginUserSchema), loginUser);
 
 /**
  * @swagger
@@ -51,9 +58,14 @@ authRouter.post("/login", loginUser);
  *       200:
  *         description: Data collector logged in successfully
  */
-authRouter.post("/data-collector/login", loginDataCollector);
+authRouter.post("/data-collector/login", validate(loginCollectorSchema), loginDataCollector);
 
-authRouter.post("/data-collector/:id/reset-password", resetDataCollectorPassword);
+authRouter.post(
+	"/data-collector/:id/reset-password",
+	verifyToken,
+	authorizeRoles(...adminRoles),
+	resetDataCollectorPassword
+);
 
 
 export default authRouter;
